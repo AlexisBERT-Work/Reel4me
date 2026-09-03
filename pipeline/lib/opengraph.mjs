@@ -65,6 +65,11 @@ export async function ogImage(pageUrl) {
   // Un SVG de logo ou un pixel de tracking ne fait pas un fond de carte.
   if (/\.svg($|\?)/i.test(absolute.pathname)) return null;
 
+  // Beaucoup de sites servent une image par defaut identique sur toutes
+  // leurs pages — arXiv renvoie ainsi son propre logo. En fond de carte,
+  // c'est pire que rien : toutes les cartes du site se ressembleraient.
+  if (/logo|favicon|default|placeholder|fallback|sprite|generic/i.test(absolute.pathname)) return null;
+
   return {
     url: absolute.toString(),
     site: metaContent(html, ['og:site_name']),

@@ -13,7 +13,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT, STAGING, DRY, arg } from './lib/config.mjs';
+import { ROOT, STAGING, DRY, arg, config } from './lib/config.mjs';
 import { db, unwrap } from './lib/db.mjs';
 import { logger } from './lib/log.mjs';
 import { sha1, clamp, isMain } from './lib/util.mjs';
@@ -61,6 +61,13 @@ const ANGLES = [
 ];
 
 async function loadContext() {
+  // Permet de tester la chaine Opus + recherche web avant meme que Supabase
+  // existe. Sans base, pas d'anti-repetition : reserve au --dry.
+  if (!config.supabaseUrl || !config.supabaseServiceKey) {
+    log.warn('Supabase non configure — recolte sans anti-repetition');
+    return { titles: [], urls: new Set() };
+  }
+
   const [titles, urls] = await Promise.all([
     db().from('cards').select('title').order('created_at', { ascending: false }).limit(200),
     db().from('cards').select('source_url').order('created_at', { ascending: false }).limit(600),

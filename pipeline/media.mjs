@@ -154,6 +154,11 @@ export async function enrichMedia() {
   let fallback = 0;
   const used = { youtube: 0, video: 0, og: 0, photo: 0 };
 
+  // Filet de securite generique, en plus du filtre sur le nom de fichier :
+  // une og:image qui revient sur plusieurs cartes est l'image par defaut du
+  // site, pas celle de l'article.
+  const ogSeen = new Map();
+
   for (const card of cards) {
     // Ordre de preference : une video reellement liee au sujet, puis du
     // mouvement pour les heros, puis l'image publiee par l'article, et enfin
@@ -161,7 +166,16 @@ export async function enrichMedia() {
     const chain = [
       ['youtube', () => resolveYouTube(card)],
       ...(card.hero && !pexelsDown ? [['video', () => resolveVideo(card)]] : []),
-      ['og', () => resolveOg(card)],
+      [
+        'og',
+        async () => {
+          const found = await resolveOg(card);
+          if (!found) return null;
+          const seen = (ogSeen.get(found.media_url) ?? 0) + 1;
+          ogSeen.set(found.media_url, seen);
+          return seen > 2 ? null : found;
+        },
+      ],
       ...(pexelsDown ? [] : [['photo', () => resolvePhoto(card)]]),
     ];
 
