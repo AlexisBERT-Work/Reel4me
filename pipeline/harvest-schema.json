@@ -1,0 +1,56 @@
+{
+  "type": "object",
+  "properties": {
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "enum": ["ai", "dev", "business", "productivity", "science"]
+          },
+          "title": {
+            "type": "string",
+            "description": "L'accroche, 60 caracteres maximum. Une affirmation concrete, jamais une question."
+          },
+          "body": {
+            "type": "string",
+            "description": "2 a 3 phrases, 320 caracteres maximum. Le mecanisme ou le chiffre qui rend l'idee vraie."
+          },
+          "takeaway": {
+            "type": "string",
+            "description": "Une phrase, 120 caracteres maximum : ce que le lecteur retient ou fait."
+          },
+          "source_url": {
+            "type": "string",
+            "description": "L'URL reelle et complete de la source consultee. Jamais inventee, jamais une page d'accueil generique."
+          },
+          "source_name": {
+            "type": "string",
+            "description": "Le nom lisible de la source (ex: 'Netflix Tech Blog', 'arXiv')."
+          },
+          "media_query": {
+            "type": "string",
+            "description": "2 a 3 mots anglais, concrets et visuels, pour chercher une illustration de repli sur Pexels."
+          },
+          "youtube_url": {
+            "type": "string",
+            "description": "URL YouTube d'une video reellement pertinente et que tu as verifiee (talk, demo, explication). Chaine vide si tu n'en as pas trouve une qui vaille vraiment le coup. Ne jamais deviner un identifiant."
+          },
+          "hero": {
+            "type": "boolean",
+            "description": "true pour au plus 1 carte sur 5 : les idees les plus fortes, qui recevront une video de fond."
+          }
+        },
+        "required": [
+          "topic", "title", "body", "takeaway",
+          "source_url", "source_name", "media_query", "youtube_url", "hero"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["cards"],
+  "additionalProperties": false
+}

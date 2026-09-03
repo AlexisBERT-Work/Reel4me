@@ -1,0 +1,78 @@
+name: Harvest (mode burn)
+
+# Le gros lot manuel : Opus part chercher lui-meme sur le web jusqu'a epuiser
+# le budget ou le quota d'abonnement.
+#
+# Se declenche depuis l'onglet Actions, y compris depuis l'application GitHub
+# sur telephone — pas besoin d'allumer le PC.
+
+on:
+  workflow_dispatch:
+    inputs:
+      budget:
+        description: 'Budget en $ de quota estime (jauge, pas une facture)'
+        required: false
+        default: '20'
+      rounds:
+        description: 'Nombre maximum de salves de recherche'
+        required: false
+        default: '20'
+      per_round:
+        description: 'Cartes visees par salve'
+        required: false
+        default: '8'
+      model:
+        description: 'Modele (opus, sonnet, fable)'
+        required: false
+        default: 'opus'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: harvest
+  cancel-in-progress: false
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    # Une recolte longue est le but recherche ; 6 h est le plafond GitHub.
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: pipeline/package-lock.json
+
+      - name: Installer Claude Code
+        run: npm i -g @anthropic-ai/claude-code
+
+      - name: Installer les dependances
+        working-directory: pipeline
+        run: npm ci
+
+      - name: Recolter
+        working-directory: pipeline
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          HARVEST_MODEL: ${{ github.event.inputs.model || 'opus' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+        run: |
+          node harvest.mjs \
+            --budget ${{ github.event.inputs.budget || '20' }} \
+            --rounds ${{ github.event.inputs.rounds || '20' }} \
+            --per-round ${{ github.event.inputs.per_round || '8' }}
+
+      - name: Conserver les logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-harvest
+          path: pipeline/logs/
+          retention-days: 14
+          if-no-files-found: ignore

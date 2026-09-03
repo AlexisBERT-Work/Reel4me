@@ -1,0 +1,21 @@
+{
+  "name": "reel4me-pipeline",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ingestion + generation nocturne des cartes Reel4me",
+  "scripts": {
+    "run": "node run.mjs",
+    "ingest": "node ingest.mjs",
+    "generate": "node generate.mjs",
+    "media": "node media.mjs",
+    "publish": "node publish.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "fast-xml-parser": "^4.5.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

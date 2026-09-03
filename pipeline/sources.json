@@ -1,0 +1,30 @@
+{
+  "hn": {
+    "enabled": true,
+    "queries": [
+      { "path": "search", "params": "tags=front_page&hitsPerPage=30" },
+      { "path": "search_by_date", "params": "tags=story&numericFilters=points>150&hitsPerPage=40" }
+    ]
+  },
+  "arxiv": {
+    "enabled": true,
+    "categories": ["cs.AI", "cs.LG", "cs.CL"],
+    "maxResults": 30
+  },
+  "rss": {
+    "enabled": true,
+    "feeds": [
+      { "name": "Simon Willison", "url": "https://simonwillison.net/atom/everything/", "topic": "ai" },
+      { "name": "OpenAI", "url": "https://openai.com/news/rss.xml", "topic": "ai" },
+      { "name": "Cloudflare Blog", "url": "https://blog.cloudflare.com/rss/", "topic": "dev" },
+      { "name": "Vercel Blog", "url": "https://vercel.com/atom", "topic": "dev" },
+      { "name": "GitHub Engineering", "url": "https://github.blog/engineering/feed/", "topic": "dev" },
+      { "name": "Netflix Tech Blog", "url": "https://netflixtechblog.com/feed", "topic": "dev" },
+      { "name": "Julia Evans", "url": "https://jvns.ca/atom.xml", "topic": "dev" },
+      { "name": "Stripe Blog", "url": "https://stripe.com/blog/feed.rss", "topic": "business" },
+      { "name": "Benedict Evans", "url": "https://www.ben-evans.com/benedictevans?format=rss", "topic": "business" },
+      { "name": "The Pragmatic Engineer", "url": "https://blog.pragmaticengineer.com/rss/", "topic": "business" },
+      { "name": "Stack Overflow Blog", "url": "https://stackoverflow.blog/feed/", "topic": "productivity" }
+    ]
+  }
+}

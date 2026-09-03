@@ -1,0 +1,65 @@
+name: Deploy
+
+# Publie la PWA sur GitHub Pages a chaque push sur main.
+# Les cles Supabase sont injectees au build : la cle anon finit dans le
+# bundle, c'est voulu, RLS la limite a lire cards / inserer interactions.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Installer les dependances
+        working-directory: app
+        run: npm ci
+
+      - name: Construire
+        working-directory: app
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # Doit correspondre au nom du repo : GitHub Pages sert sous /<repo>/.
+          VITE_BASE: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - name: Repli 404 pour le routage client
+        run: cp app/dist/index.html app/dist/404.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

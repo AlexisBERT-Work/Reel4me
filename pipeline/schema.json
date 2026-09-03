@@ -1,0 +1,49 @@
+{
+  "type": "object",
+  "properties": {
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "L'id exact de l'item source fourni en entree. Recopier tel quel."
+          },
+          "skip": {
+            "type": "boolean",
+            "description": "true si l'item ne merite pas de carte (offre d'emploi, annonce produit creuse, drama, contenu non technique sans idee)."
+          },
+          "topic": {
+            "type": "string",
+            "enum": ["ai", "dev", "business", "productivity", "science"]
+          },
+          "title": {
+            "type": "string",
+            "description": "L'accroche, 60 caracteres maximum. Une affirmation concrete, jamais une question ni un titre d'article recopie."
+          },
+          "body": {
+            "type": "string",
+            "description": "2 a 3 phrases, 320 caracteres maximum. Le mecanisme ou le chiffre qui rend l'idee vraie."
+          },
+          "takeaway": {
+            "type": "string",
+            "description": "Une phrase, 120 caracteres maximum : ce que le lecteur fait ou retient concretement."
+          },
+          "media_query": {
+            "type": "string",
+            "description": "2 a 3 mots anglais pour chercher une image d'illustration sur Pexels. Concret et visuel (ex: 'server room night'), jamais abstrait (ex: 'innovation')."
+          },
+          "hero": {
+            "type": "boolean",
+            "description": "true pour au maximum 1 carte sur 5 : celles dont l'idee est la plus forte. Elles recevront une video de fond."
+          }
+        },
+        "required": ["item_id", "skip", "topic", "title", "body", "takeaway", "media_query", "hero"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["cards"],
+  "additionalProperties": false
+}
