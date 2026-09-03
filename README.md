@@ -39,9 +39,17 @@ Deux points qui font tenir l'ensemble :
 
 Créer un projet gratuit, puis coller [supabase/schema.sql](supabase/schema.sql) dans **SQL Editor → New query → Run**. Le script est rejouable sans casse.
 
+Créer ensuite ton compte dans **Authentication → Users → Add user**, en cochant *Auto Confirm User*, puis te désigner comme propriétaire :
+
+```sql
+insert into app_owner (user_id)
+select id from auth.users where email = 'ton@email'
+on conflict do nothing;
+```
+
 Récupérer dans **Project Settings → API** : l'URL, la clé `anon`, la clé `service_role`.
 
-> **Les deux clés ne vont pas au même endroit.** `service_role` contourne RLS et écrit les cartes : elle ne sort jamais des secrets Actions. `anon` part dans le bundle de la PWA, donc elle est publique — RLS la limite à *lire* `cards` et *insérer* dans `interactions`. Inverser les deux rendrait la base éditable par n'importe qui.
+> **Les deux clés ne vont pas au même endroit.** `service_role` contourne RLS et écrit les cartes : elle ne sort jamais des secrets Actions. `anon` part dans le bundle de la PWA, donc elle est **publique et lisible par n'importe qui** — c'est pour ça qu'elle ne donne aucun accès à elle seule.
 
 ### 2. Token d'abonnement
 
@@ -104,6 +112,18 @@ npm run dev -- --host                         # test sur le LAN
 ```
 
 Logs dans `pipeline/logs/`, un fichier par jour. En CI, ils sont attachés au run comme artifact.
+
+## Sécurité
+
+Le dépôt est public, le feed ne l'est pas.
+
+**Les workflows.** `workflow_dispatch` exige un accès en écriture au dépôt ([doc GitHub](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow) : *« Write access to the repository is required »*). Personne d'autre ne peut donc lancer la génération ni la récolte. Aucun workflow ne se déclenche sur `pull_request`, et GitHub retire de toute façon les secrets des runs venant d'un fork.
+
+**La base.** La clé `anon` est dans le bundle, donc publique. Elle ne donne aucun accès seule : RLS réserve la lecture de `cards` et l'écriture d'`interactions` au compte inscrit dans `app_owner`.
+
+L'accès est attaché à un **user id précis**, pas à « tout compte connecté ». La différence compte : si les inscriptions publiques restaient ouvertes côté Supabase, un `to authenticated` suffirait à laisser n'importe qui créer un compte et entrer. Ici le garde-fou ne dépend d'aucun réglage du tableau de bord. Désactiver les inscriptions publiques reste conseillé, en défense secondaire.
+
+`bump_card_stat` est en `security definer`, donc contourne RLS : elle revérifie `is_owner()` en interne, sans quoi elle serait une porte dérobée pour gonfler les compteurs.
 
 ## Comment une carte trouve son image
 

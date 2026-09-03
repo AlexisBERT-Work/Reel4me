@@ -374,6 +374,65 @@ iframe.card__media {
   cursor: pointer;
 }
 
+.login {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 300px;
+  margin-top: 6px;
+}
+
+.login input {
+  padding: 12px 14px;
+  border: 1px solid #ffffff24;
+  border-radius: 11px;
+  background: #ffffff0d;
+  color: var(--fg);
+  font-size: 1rem; /* 16px minimum : en dessous, iOS zoome au focus */
+  font-family: inherit;
+}
+
+.login input::placeholder {
+  color: #71717a;
+}
+
+.login input:focus {
+  outline: none;
+  border-color: #ffffff5c;
+  background: #ffffff14;
+}
+
+.login .btn {
+  margin-top: 4px;
+}
+
+.login .btn:disabled {
+  opacity: 0.55;
+}
+
+.login__error {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: #fca5a5;
+}
+
+.link-btn {
+  margin-top: 14px;
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 .spinner {
   width: 26px;
   height: 26px;

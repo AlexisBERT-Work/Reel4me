@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import CardView from './components/CardView';
-import { configured, fetchCards, PAGE_SIZE } from './lib/supabase';
+import Login from './components/Login';
+import { configured, currentSession, fetchCards, onAuthChange, PAGE_SIZE, signOut } from './lib/supabase';
 import { flush, loadSeen, record, saveSeen, watchConnectivity } from './lib/queue';
 import type { Action, Card } from './lib/types';
 
@@ -12,6 +14,8 @@ const PREFETCH_AT = 3;
 const MEDIA_WINDOW = 2;
 
 export default function App() {
+  // undefined = on ne sait pas encore, null = deconnecte.
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [cards, setCards] = useState<Card[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [status, setStatus] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading');
@@ -26,6 +30,15 @@ export default function App() {
   useEffect(() => {
     seen.current = loadSeen();
     return watchConnectivity();
+  }, []);
+
+  useEffect(() => {
+    if (!configured) {
+      setSession(null);
+      return;
+    }
+    void currentSession().then(setSession);
+    return onAuthChange(setSession);
   }, []);
 
   const loadMore = useCallback(async () => {
@@ -63,16 +76,13 @@ export default function App() {
     }
   }, [exhausted]);
 
+  // Le premier chargement attend la session : sans jeton, RLS renvoie zero
+  // carte et le feed s'afficherait vide a tort.
   useEffect(() => {
-    if (!configured) {
-      setStatus('empty');
-      return;
-    }
+    if (!session) return;
     void loadMore();
-    // Volontairement au montage seulement : les chargements suivants sont
-    // declenches par le scroll.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     if (status === 'ready' && !cards.length && exhausted) setStatus('empty');
@@ -130,6 +140,29 @@ export default function App() {
     }
   }, []);
 
+  if (!configured) {
+    return (
+      <div className="screen">
+        <h1>Reel4me</h1>
+        <p className="muted">
+          Renseigne <code>VITE_SUPABASE_URL</code> et <code>VITE_SUPABASE_ANON_KEY</code> dans{' '}
+          <code>app/.env.local</code>, puis relance le serveur.
+        </p>
+        <p className="muted">La clé anon, pas la clé service_role.</p>
+      </div>
+    );
+  }
+
+  if (session === undefined) {
+    return (
+      <div className="screen">
+        <div className="spinner" />
+      </div>
+    );
+  }
+
+  if (session === null) return <Login />;
+
   if (status === 'loading') {
     return (
       <div className="screen">
@@ -161,22 +194,13 @@ export default function App() {
     return (
       <div className="screen">
         <h1>Reel4me</h1>
-        {!configured ? (
-          <>
-            <p className="muted">
-              Renseigne <code>VITE_SUPABASE_URL</code> et <code>VITE_SUPABASE_ANON_KEY</code> dans{' '}
-              <code>app/.env.local</code>, puis relance le serveur.
-            </p>
-            <p className="muted">La clé anon, pas la clé service_role.</p>
-          </>
-        ) : (
-          <>
-            <p className="muted">Aucune carte pour l'instant.</p>
-            <p className="muted">
-              Lance <code>node pipeline/run.mjs</code> pour remplir le feed.
-            </p>
-          </>
-        )}
+        <p className="muted">Aucune carte pour l'instant.</p>
+        <p className="muted">
+          Lance le workflow <code>Pipeline nocturne</code> depuis l'onglet Actions pour remplir le feed.
+        </p>
+        <button className="link-btn" onClick={() => void signOut()}>
+          Se déconnecter
+        </button>
       </div>
     );
   }
@@ -198,9 +222,12 @@ export default function App() {
           <div className="card__body">
             <h2 className="card__title">C'est tout pour aujourd'hui</h2>
             <p className="card__text">
-              Le pipeline tourne chaque nuit. Reviens demain, ou lance-le à la main avec{' '}
-              <code>node pipeline/run.mjs</code>.
+              Le pipeline tourne chaque nuit. Pour un gros lot tout de suite, lance le workflow{' '}
+              <code>Harvest</code> depuis l'onglet Actions.
             </p>
+            <button className="link-btn" onClick={() => void signOut()}>
+              Se déconnecter
+            </button>
           </div>
         </section>
       )}
