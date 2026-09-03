@@ -15,6 +15,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       manifest: {
         id: BASE,
+        lang: 'fr',
         name: 'Reel4me',
         short_name: 'Reel4me',
         description: 'Un feed de cartes de savoir, tech / IA / business.',

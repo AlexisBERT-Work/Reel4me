@@ -2,114 +2,149 @@
 
 Un feed de cartes de savoir qui se scrolle au téléphone, sur tes sujets (IA, dev, business, productivité), à **0 €/mois**.
 
-Chaque nuit, le PC ingère de vraies sources, Claude les réécrit en cartes courtes et sourcées, et publie dans Supabase. Le téléphone lit le feed et renvoie tes likes, qui orientent le lot du lendemain.
+**→ [alexisbert-work.github.io/Reel4me](https://alexisbert-work.github.io/Reel4me/)**
+
+Chaque nuit, GitHub Actions ingère de vraies sources, Claude les réécrit en cartes courtes et sourcées, et publie dans Supabase. Le téléphone lit le feed et renvoie tes likes, qui orientent le lot du lendemain. Aucun PC allumé nulle part.
 
 ```
-Nuit (PC)      ingest ──► generate ──► media ──► publish
-               HN/arXiv    claude -p    Pexels    Supabase
-                 /RSS
+Nuit (Actions)   ingest ──► generate ──► media ──────────► publish
+                 HN/arXiv    claude -p    youtube/og:image  Supabase
+                   /RSS      (sonnet)     /Pexels/dégradé
 
-Journée (tél.) PWA ◄── cards          interactions ──► Supabase
-                                            │
-Nuit suivante  generate relit les interactions ◄┘
+Manuel (burn)    harvest ─── Opus + WebSearch ──► media ──► publish
+
+Journée (tél.)   PWA ◄── cards            interactions ──► Supabase
+                                                 │
+Nuit suivante    generate relit les interactions ◄┘
 ```
 
 ## Pourquoi c'est gratuit
 
 | Poste | Choix | Coût |
 |---|---|---|
-| Génération | `claude -p` sur ton abonnement Claude Max | 0 € |
+| Génération | Claude Code sur ton abonnement, via `CLAUDE_CODE_OAUTH_TOKEN` | 0 € |
+| Exécution | GitHub Actions, repo public | 0 € |
 | Base | Supabase, palier gratuit | 0 € |
-| Visuels | API Pexels (200 req/h) | 0 € |
-| Hébergement | Cloudflare Pages / Vercel | 0 € |
+| Visuels | og:image des articles + API Pexels | 0 € |
+| Hébergement | GitHub Pages | 0 € |
 
-Le point clé : **`claude -p` sans `--bare`** lit les identifiants OAuth et consomme ton abonnement, pas des crédits API. Le mode `--bare` ferait l'inverse — il ignore l'OAuth et exige `ANTHROPIC_API_KEY`. `llm.js` ne l'utilise jamais.
+Deux points qui font tenir l'ensemble :
+
+- **`claude -p` sans `--bare`** lit les identifiants OAuth et consomme ton abonnement, pas des crédits API. Le mode `--bare` ferait l'inverse : il ignore l'OAuth et exige `ANTHROPIC_API_KEY`. [llm.js](pipeline/llm.js) ne l'utilise jamais.
+- En CI, `CLAUDE_CODE_OAUTH_TOKEN` joue le même rôle. La doc Anthropic est explicite : *« If you authenticate with an OAuth token, runs use your Claude subscription instead of API billing. »*
 
 ## Installation
 
-### 1. Claude Code en CLI
+### 1. Supabase
 
-```bash
-npm i -g @anthropic-ai/claude-code
-claude          # une fois, en interactif, pour valider le login
-```
-
-### 2. Supabase
-
-Créer un projet gratuit, puis coller `supabase/schema.sql` dans **SQL Editor → New query → Run**.
+Créer un projet gratuit, puis coller [supabase/schema.sql](supabase/schema.sql) dans **SQL Editor → New query → Run**. Le script est rejouable sans casse.
 
 Récupérer dans **Project Settings → API** : l'URL, la clé `anon`, la clé `service_role`.
 
-> **Les deux clés ne vont pas au même endroit.** `service_role` contourne RLS et écrit les cartes : elle reste dans `pipeline/.env`, sur le PC. `anon` part dans le bundle de la PWA, donc elle est publique — RLS la limite à *lire* `cards` et *insérer* dans `interactions`. Inverser les deux rendrait la base éditable par n'importe qui.
+> **Les deux clés ne vont pas au même endroit.** `service_role` contourne RLS et écrit les cartes : elle ne sort jamais des secrets Actions. `anon` part dans le bundle de la PWA, donc elle est publique — RLS la limite à *lire* `cards` et *insérer* dans `interactions`. Inverser les deux rendrait la base éditable par n'importe qui.
 
-### 3. Pipeline
-
-```bash
-cd pipeline
-npm install
-cp .env.example .env        # puis remplir
-```
-
-Clé Pexels gratuite sur <https://www.pexels.com/api/>. Sans elle le pipeline tourne quand même : les cartes prennent un dégradé généré.
-
-### 4. Application
+### 2. Token d'abonnement
 
 ```bash
-cd app
-npm install
-cp .env.example .env.local  # URL + clé anon
-node scripts/make-icons.mjs # icônes PWA (déjà générées, à relancer si tu changes le visuel)
-npm run dev -- --host
+npm i -g @anthropic-ai/claude-code
+claude setup-token          # génère un token longue durée
 ```
 
-Ouvrir l'IP LAN affichée depuis le téléphone, puis « Ajouter à l'écran d'accueil ».
+### 3. Secrets GitHub
 
-### 5. Planification
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\setup-task.ps1
+```bash
+gh secret set CLAUDE_CODE_OAUTH_TOKEN   # collé depuis setup-token
+gh secret set SUPABASE_URL
+gh secret set SUPABASE_SERVICE_KEY      # service_role
+gh secret set PEXELS_API_KEY            # gratuit sur pexels.com/api
+gh secret set VITE_SUPABASE_URL         # même URL
+gh secret set VITE_SUPABASE_ANON_KEY    # clé anon, pas service_role
 ```
 
-Tâche quotidienne à 4h, avec rattrapage si le PC était éteint et sortie de veille. Elle tourne **sous ta session** : c'est obligatoire, les identifiants OAuth ne sont pas lisibles depuis un compte de service.
+Puis relancer le déploiement pour que la PWA soit reconstruite avec les clés :
+
+```bash
+gh workflow run deploy.yml
+```
 
 ## Utilisation
 
+### Depuis le téléphone
+
+Ouvrir l'URL, puis « Ajouter à l'écran d'accueil ». La PWA garde le feed en cache : le scroll continue en mode avion, les likes partent au retour du réseau.
+
+L'onglet **Actions** de GitHub (y compris dans l'app mobile) permet de lancer les deux workflows manuels sans toucher au PC.
+
+### Le mode burn
+
+Quand il te reste du quota d'abonnement, `harvest` lâche Opus sur le web avec `WebSearch` et `WebFetch`. Il ne réécrit pas des flux RSS : il **cherche**, ouvre les pages, vérifie, et écrit. Il tourne par salves, chacune sur un angle différent (papers, post-mortems, chiffres contre-intuitifs, anti-patterns…), et ne s'arrête que sur budget atteint, rounds épuisés, ou plafond de quota.
+
+Depuis l'onglet Actions → *Harvest (mode burn)* → *Run workflow*, ou en local :
+
 ```bash
-node pipeline/run.mjs                        # le pipeline complet
-node pipeline/ingest.mjs --dry               # ce qui serait ingéré
-node pipeline/generate.mjs --sample --dry    # 3 cartes de test, sans Supabase
-node pipeline/generate.mjs --limit 20        # limiter le lot
-schtasks /run /tn Reel4me                    # déclencher la tâche à la main
+node pipeline/harvest.mjs                      # 20 salves, ~20 $ de quota
+node pipeline/harvest.mjs --budget 5 --rounds 6
+node pipeline/harvest.mjs --dry                # une salve, rien d'écrit
 ```
 
-Logs dans `pipeline/logs/`, un fichier par jour.
+Le budget est une **jauge, pas une facture** : `total_cost_usd` est l'estimation client que renvoie la CLI, affichée même sous abonnement.
+
+### En local
+
+```bash
+cd pipeline && npm install && cp .env.example .env   # puis remplir
+node run.mjs                                  # le pipeline complet
+node ingest.mjs --dry                         # ce qui serait ingéré
+node generate.mjs --sample --dry              # 3 cartes de test, sans Supabase
+```
+
+```bash
+cd app && npm install && cp .env.example .env.local
+npm run dev -- --host                         # test sur le LAN
+```
+
+Logs dans `pipeline/logs/`, un fichier par jour. En CI, ils sont attachés au run comme artifact.
+
+## Comment une carte trouve son image
+
+Par ordre de préférence, du plus pertinent au plus générique :
+
+1. **YouTube** — seulement en mode harvest, quand Opus est tombé sur une vidéo vraiment liée au sujet. L'identifiant est validé contre le format officiel : un id deviné donnerait une vidéo morte. Vignette d'abord, iframe au tap.
+2. **Vidéo Pexels** — pour les cartes `hero` (1 sur 5 au plus), en boucle muette. Seule la carte visible joue.
+3. **og:image de l'article** — l'image que le site publie pour être partagée. Souvent en 1200×630, donc affichée en entier sur une copie floutée d'elle-même plutôt que recadrée à l'aveugle.
+4. **Photo Pexels** — verticale, avec un zoom lent façon Ken Burns.
+5. **Dégradé généré** — déterministe à partir de l'id, donc stable d'une session à l'autre.
+
+Si une image distante disparaît, la carte retombe sur son dégradé au lieu d'afficher un cadre cassé.
 
 ## Ce qui rend le feed intelligent
 
-`generate.mjs` relit les 14 derniers jours d'`interactions` avant chaque lot et en tire trois signaux injectés dans le prompt : le taux de rétention par sujet, les mots-clés des cartes gardées, ceux des cartes systématiquement passées. En dessous de 15 interactions il ne pondère pas — mieux vaut couvrir large que sur-apprendre sur trois clics.
+[generate.mjs](pipeline/generate.mjs) relit les 14 derniers jours d'`interactions` avant chaque lot et en tire trois signaux injectés dans le prompt : le taux de rétention par sujet, les mots-clés des cartes gardées, ceux des cartes systématiquement passées. En dessous de 15 interactions il ne pondère pas — mieux vaut couvrir large que sur-apprendre sur trois clics.
 
-Les 60 derniers titres publiés partent aussi dans le prompt, en anti-répétition. Deuxième garde-fou : l'id d'une carte est un `sha1(item_id + titre)`, donc un doublon exact ne peut pas être inséré deux fois.
+Les 60 derniers titres publiés partent aussi dans le prompt, en anti-répétition. Deuxième garde-fou : l'id d'une carte est un `sha1(source + titre)`, donc un doublon exact ne peut pas être inséré deux fois. En mode harvest, les 600 dernières URL publiées sont également exclues.
 
-## Réglages utiles
+## Réglages
 
 | Fichier | Quoi |
 |---|---|
-| `pipeline/sources.json` | Ajouter/retirer des flux RSS, catégories arXiv, requêtes HN |
-| `pipeline/generate.mjs` | `SYSTEM_PROMPT` — la ligne éditoriale, c'est là que se joue la qualité |
-| `pipeline/schema.json` | La forme d'une carte |
-| `pipeline/.env` | `CLAUDE_MODEL` (défaut `sonnet`), `LLM_BACKEND` |
+| [pipeline/sources.json](pipeline/sources.json) | Flux RSS, catégories arXiv, requêtes HN |
+| [pipeline/generate.mjs](pipeline/generate.mjs) | `SYSTEM_PROMPT` — la ligne éditoriale, c'est là que se joue la qualité |
+| [pipeline/harvest.mjs](pipeline/harvest.mjs) | `ANGLES` — les axes de recherche du mode burn |
+| [pipeline/schema.json](pipeline/schema.json) | La forme d'une carte |
 
-## Si le PC ne peut plus tourner la nuit
+Le PC n'est plus nécessaire, mais [setup-task.ps1](setup-task.ps1) reste disponible si tu veux aussi une tâche Windows locale.
 
-Basculer sur l'API dans `pipeline/.env` :
+## Si tu préfères l'API au quota d'abonnement
+
+Dans `pipeline/.env` (ou en secrets) :
 
 ```
 LLM_BACKEND=api
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-puis `npm i @anthropic-ai/sdk` dans `pipeline/`. Le modèle par défaut devient `claude-haiku-4-5`, soit environ 2 €/mois pour 60 cartes par jour. Le reste du pipeline ne change pas — `llm.js` expose la même fonction dans les deux cas.
+puis `npm i @anthropic-ai/sdk` dans `pipeline/`. Le modèle devient `claude-haiku-4-5`, soit environ 2 €/mois pour 60 cartes par jour. Le reste du pipeline ne change pas : `llm.js` expose la même fonction dans les deux cas.
 
-## Licence et attributions
+## Attributions
 
-Projet personnel. Les visuels viennent de [Pexels](https://www.pexels.com) et l'attribution du photographe est affichée sur chaque carte, comme leurs conditions l'exigent.
+Les visuels de repli viennent de [Pexels](https://www.pexels.com) et le crédit du photographe est affiché sur chaque carte concernée, comme leurs conditions l'exigent.
