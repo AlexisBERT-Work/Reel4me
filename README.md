@@ -4,18 +4,18 @@ Un feed de cartes de savoir qui se scrolle au téléphone, sur tes sujets (IA, d
 
 **→ [alexisbert-work.github.io/Reel4me](https://alexisbert-work.github.io/Reel4me/)**
 
-Chaque nuit, GitHub Actions ingère de vraies sources, Claude les réécrit en cartes courtes et sourcées, et publie dans Supabase. Le téléphone lit le feed et renvoie tes likes, qui orientent le lot du lendemain. Aucun PC allumé nulle part.
+Le pipeline, lancé en local, ingère de vraies sources, Claude les réécrit en cartes courtes et sourcées, et publie dans Supabase. Le téléphone lit le feed et renvoie tes likes, qui orientent le lot suivant.
 
 ```
-Nuit (Actions)   ingest ──► generate ──► media ──────────► publish
+Pipeline (local) ingest ──► generate ──► media ──────────► publish
                  HN/arXiv    claude -p    youtube/og:image  Supabase
                    /RSS      (sonnet)     /Pexels/dégradé
 
-Manuel (burn)    harvest ─── Opus + WebSearch ──► media ──► publish
+Burn (local)     harvest ─── Opus + WebSearch ──► media ──► publish
 
 Journée (tél.)   PWA ◄── cards            interactions ──► Supabase
                                                  │
-Nuit suivante    generate relit les interactions ◄┘
+Lot suivant      generate relit les interactions ◄┘
 ```
 
 ## Pourquoi c'est gratuit
@@ -23,7 +23,7 @@ Nuit suivante    generate relit les interactions ◄┘
 | Poste | Choix | Coût |
 |---|---|---|
 | Génération | Claude Code sur ton abonnement, via `CLAUDE_CODE_OAUTH_TOKEN` | 0 € |
-| Exécution | GitHub Actions, repo public | 0 € |
+| Exécution | En local | 0 € |
 | Base | Supabase, palier gratuit | 0 € |
 | Visuels | og:image des articles + API Pexels | 0 € |
 | Hébergement | GitHub Pages | 0 € |
@@ -31,7 +31,6 @@ Nuit suivante    generate relit les interactions ◄┘
 Deux points qui font tenir l'ensemble :
 
 - **`claude -p` sans `--bare`** lit les identifiants OAuth et consomme ton abonnement, pas des crédits API. Le mode `--bare` ferait l'inverse : il ignore l'OAuth et exige `ANTHROPIC_API_KEY`. [llm.js](pipeline/llm.js) ne l'utilise jamais.
-- En CI, `CLAUDE_CODE_OAUTH_TOKEN` joue le même rôle. La doc Anthropic est explicite : *« If you authenticate with an OAuth token, runs use your Claude subscription instead of API billing. »*
 
 ## Installation
 
@@ -49,7 +48,7 @@ on conflict do nothing;
 
 Récupérer dans **Project Settings → API** : l'URL, la clé `anon`, la clé `service_role`.
 
-> **Les deux clés ne vont pas au même endroit.** `service_role` contourne RLS et écrit les cartes : elle ne sort jamais des secrets Actions. `anon` part dans le bundle de la PWA, donc elle est **publique et lisible par n'importe qui** — c'est pour ça qu'elle ne donne aucun accès à elle seule.
+> **Les deux clés ne vont pas au même endroit.** `service_role` contourne RLS et écrit les cartes : elle ne sort jamais de `pipeline/.env`. `anon` part dans le bundle de la PWA, donc elle est **publique et lisible par n'importe qui** — c'est pour ça qu'elle ne donne aucun accès à elle seule.
 
 ### 2. Token d'abonnement
 
@@ -61,10 +60,6 @@ claude setup-token          # génère un token longue durée
 ### 3. Secrets GitHub
 
 ```bash
-gh secret set CLAUDE_CODE_OAUTH_TOKEN   # collé depuis setup-token
-gh secret set SUPABASE_URL
-gh secret set SUPABASE_SERVICE_KEY      # service_role
-gh secret set PEXELS_API_KEY            # gratuit sur pexels.com/api
 gh secret set VITE_SUPABASE_URL         # même URL
 gh secret set VITE_SUPABASE_ANON_KEY    # clé anon, pas service_role
 ```
@@ -81,13 +76,11 @@ gh workflow run deploy.yml
 
 Ouvrir l'URL, puis « Ajouter à l'écran d'accueil ». La PWA garde le feed en cache : le scroll continue en mode avion, les likes partent au retour du réseau.
 
-L'onglet **Actions** de GitHub (y compris dans l'app mobile) permet de lancer les deux workflows manuels sans toucher au PC.
-
 ### Le mode burn
 
 Quand il te reste du quota d'abonnement, `harvest` lâche Opus sur le web avec `WebSearch` et `WebFetch`. Il ne réécrit pas des flux RSS : il **cherche**, ouvre les pages, vérifie, et écrit. Il tourne par salves, chacune sur un angle différent (papers, post-mortems, chiffres contre-intuitifs, anti-patterns…), et ne s'arrête que sur budget atteint, rounds épuisés, ou plafond de quota.
 
-Depuis l'onglet Actions → *Harvest (mode burn)* → *Run workflow*, ou en local :
+En local :
 
 ```bash
 node pipeline/harvest.mjs                      # 20 salves, ~20 $ de quota
@@ -111,13 +104,13 @@ cd app && npm install && cp .env.example .env.local
 npm run dev -- --host                         # test sur le LAN
 ```
 
-Logs dans `pipeline/logs/`, un fichier par jour. En CI, ils sont attachés au run comme artifact.
+Logs dans `pipeline/logs/`, un fichier par jour.
 
 ## Sécurité
 
 Le dépôt est public, le feed ne l'est pas.
 
-**Les workflows.** `workflow_dispatch` exige un accès en écriture au dépôt ([doc GitHub](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow) : *« Write access to the repository is required »*). Personne d'autre ne peut donc lancer la génération ni la récolte. Aucun workflow ne se déclenche sur `pull_request`, et GitHub retire de toute façon les secrets des runs venant d'un fork.
+**Les workflows.** Seul le déploiement de la PWA tourne sur GitHub Actions ; la génération et la récolte se lancent en local. Aucun workflow ne se déclenche sur `pull_request`, et GitHub retire de toute façon les secrets des runs venant d'un fork.
 
 **La base.** La clé `anon` est dans le bundle, donc publique. Elle ne donne aucun accès seule : RLS réserve la lecture de `cards` et l'écriture d'`interactions` au compte inscrit dans `app_owner`.
 
@@ -156,7 +149,7 @@ Le PC n'est plus nécessaire, mais [setup-task.ps1](setup-task.ps1) reste dispon
 
 ## Si tu préfères l'API au quota d'abonnement
 
-Dans `pipeline/.env` (ou en secrets) :
+Dans `pipeline/.env` :
 
 ```
 LLM_BACKEND=api
